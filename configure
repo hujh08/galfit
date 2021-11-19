@@ -1,0 +1,84 @@
+#!/bin/bash
+
+function USAGE() {
+    echo "Usage: $0 [OPTION]"
+    echo "OPTION:"
+    echo "  -h, --help      help"
+    echo "      --prefix    prefix directory"
+    echo "      --libdir    library directory"
+    echo "      --package   package name"
+    echo "  -c, --clean     rm makefile"
+}
+
+makef=makefile
+
+# parse options
+prefix='/usr/local'
+libdir=''
+package=`basename $PWD`
+
+ARGS=`getopt -o hc \
+             --long help,prefix:,libdir:,package:,clean \
+             -n $0 -- "$@"`
+if [ $? != 0 ]; then USAGE; exit -1; fi
+
+eval set -- "$ARGS"
+while :
+do
+    opt="$1"
+    case "$1" in
+        -h|--help) USAGE; exit;;
+        -c|--clean) echo "remove $makef"; rm $makef; exit;;
+           --prefix) prefix=$2; shift 2;;
+           --libdir) libdir=$2; shift 2;;
+           --package) package=$2; shift 2;;
+        --) shift; break;;
+    esac
+done
+
+if [ x"$libdir" == x ]
+then
+    if [ x"$prefix" != x"/" ]; then prefix=${prefix%/}/; fi
+    libdir=${prefix}lib
+else
+    if [ x"$libdir" != x"/" ]; then libdir=${libdir%/}; fi
+fi
+
+echo "package: $package"
+echo "libdir: $libdir"
+echo
+
+cat >$makef <<EOF
+package=$package
+
+libdir=$libdir
+
+moddir=\$(libdir)/\$(package)
+
+all:
+	echo "all finished"
+
+install:
+	[ -d \$(moddir) ] || mkdir \$(moddir)
+	cp *.py \$(moddir)
+EOF
+
+# subfolders
+subds=()
+for subd in "${subds[@]}"
+do
+    echo "cp dir: $subd ==> $libdir/$package/$subd"
+
+    echo -e "\t[ -d \$(moddir)/$subd ] || mkdir \$(moddir)/$subd" >> $makef
+    echo -e "\tcp -r $subd/* \$(moddir)/$subd" >> $makef
+done
+
+# other tasks
+echo >>$makef
+echo "clean:">>$makef
+echo -e "\trm -rf \$(moddir)/*">>$makef
+
+echo >>$makef
+echo "rmdir:">>$makef
+echo -e "\trm -rf \$(moddir)/*">>$makef
+echo -e "\trmdir \$(moddir)">>$makef

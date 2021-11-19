@@ -40,3 +40,8 @@ Syntax to locate a HDU is to attach, following file name, with square brackets e
 Syntax to specify image section is similar as numpy ndarray, but with inversed axis order, that is x, y. There are two differences: asterisk, `*`, is used to mean entire axis (similar as `:` in numpy), and `-` in the begining would flip the axis (only support combining with `*`, that is `-*`). Such section string could be appended after a HDU one (e.g. `example.fits[2][1:256,1:256]`)
 
 In the combining cases, HDU+section or extname+extver+xtension, field order is fixed. That means if both hdu and section are specified, hdu must be before sect. Same for the extname.
+
+# Install
+configure: `./configure  --libdir path/to/libdir`, where `libdir` path is folder to contain the package
+
+Then `make install`
