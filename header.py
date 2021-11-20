@@ -131,6 +131,14 @@ class Header(GFSlotsDict):
         '''
         super().reset()
 
+    # parameters related with file system
+    @classmethod
+    def get_file_pars(cls):
+        '''
+            return list of parameters related with file system
+        '''
+        return list('ACDFG')
+
     # methods registered to be accessible by top `GalFit` object
     _METHODS_GF=set()
 

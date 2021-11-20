@@ -348,3 +348,40 @@ class GalFit:
             freeze all model variants to all/part components
         '''
         self.set_modvar_state_comps('freeze', comps)
+
+    # work dir
+    def chdir_to(self, dest, keep_header=False):
+        '''
+            change work dir to new one `dest`
+
+            Parameters:
+                dest: str
+                    new work directory
+
+                keep_header: bool
+                    whether to change header parameters
+
+                    if not, all header parameters related with file system would
+                        be changed to follow location in file system
+        '''
+        assert is_str_type(dest)
+
+        oldwd=self.workdir
+        newwd=dest
+
+        if not keep_header:
+            for par in self.header.get_file_pars():
+                oldfname=self.header.get_val(par)
+
+                path=os.path.join(oldwd, oldfname)
+                newfname=os.path.relpath(path, newwd)
+
+                self.header.set_prop(par, newfname)
+
+        self.workdir=newwd
+
+    def force_wd_abspath(self):
+        '''
+            force work dir to abspath
+        '''
+        self.workdir=os.path.abspath(self.workdir)
