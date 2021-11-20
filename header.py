@@ -4,8 +4,8 @@
     Header of galfit file
 '''
 
-from .collection import GFSlotsDict
-from .dtype import is_int_type
+from .collection import GFSlotsDict, register_method_to
+from .dtype import is_int_type, is_str_type
 
 class Header(GFSlotsDict):
     '''
@@ -123,14 +123,7 @@ class Header(GFSlotsDict):
         P=mode_alias,
     )
 
-    # init
-    def __init__(self, *args, **kwargs):
-        '''
-            Header object
-
-            just deliver to super object
-        '''
-        super().__init__(*args, **kwargs)
+    # init: just use super().__init__
 
     def reset(self):
         '''
@@ -138,7 +131,18 @@ class Header(GFSlotsDict):
         '''
         super().reset()
 
+    # methods registered to be accessible by top `GalFit` object
+    _METHODS_GF=set()
+
+    @classmethod
+    def _is_gf_method(cls, funcname):
+        '''
+            whether a method is expected to be accessed by `GalFit` object
+        '''
+        return is_str_type(funcname) and funcname in cls._METHODS_GF
+
     # Parameter P (galfit runing mode)
+    @register_method_to(_METHODS_GF)
     def set_gf_mod(self, mod):
         '''
             set Parameter P (galfit runing mode)
@@ -151,12 +155,14 @@ class Header(GFSlotsDict):
             mod='%i' % mod
         self.set_prop('P', mod)
 
+    @register_method_to(_METHODS_GF)
     def use_fit_mod(self):
         '''
             set optimize mode for galfit input file
         '''
         self.set_gf_mod(0)
 
+    @register_method_to(_METHODS_GF)
     def use_create_mod(self, block=False, subcomps=False):
         '''
             no optimizing, just create images

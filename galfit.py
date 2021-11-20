@@ -69,7 +69,7 @@ class GalFit:
     # load galfit file
 
     ## re pattern for line of variants: N) xxx ... # comments
-    PATTERN_VARLINE=re.compile(r'^\s*([0-9a-zA-Z.]+)\)\s+([^#]+?)(?:\s+#|\s*$)')
+    _PATTERN_VARLINE=re.compile(r'^\s*([0-9a-zA-Z.]+)\)\s+([^#]+?)(?:\s+#|\s*$)')
 
     def load_file(self, fname,
                         ignore_dirname=False, force_wd_abspath=False,
@@ -113,7 +113,7 @@ class GalFit:
                 self.workdir=os.path.abspath(self.workdir)
 
         # load file
-        ptn_varline=self.PATTERN_VARLINE
+        ptn_varline=self._PATTERN_VARLINE
         with open(fname) as f:
             for line in f:
                 m=ptn_varline.match(line)
@@ -201,8 +201,7 @@ class GalFit:
             return getattr(self.header, prop)
 
         # header methods
-        methods_hdr={'set_gf_mod', 'use_fit_mod', 'use_create_mod'}
-        if prop in methods_hdr:
+        if self.header._is_gf_method(prop):
             return getattr(self.header, prop)
 
         super().__getattr__(prop)

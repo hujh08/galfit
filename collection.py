@@ -34,6 +34,21 @@ def inverse_alias(alias):
             result[v]=k
     return result
 
+# decorator to register methods for user accessibility
+def register_method_to(set_register):
+    '''
+        return decorator to register methods
+
+        Parameters:
+            set_register: set
+                place to store function name
+    '''
+    def decorator(f):
+        set_register.add(f.__name__)
+        return f
+
+    return decorator
+
 '''
     basic classes
 '''
