@@ -139,6 +139,21 @@ class Header(GFSlotsDict):
         '''
         return list('ACDFG')
 
+    @classmethod
+    def is_file_par(cls, par):
+        '''
+            whether a param is a parameter related with file system
+        '''
+        return cls.get_std_key(par) in 'ACDFG'
+
+    def is_par_none(self, par):
+        '''
+            whether a param is setted to 'none'
+
+            'none' means not set for the parameter
+        '''
+        return self.get_val(par)=='none'
+
     # methods registered to be accessible by top `GalFit` object
     _METHODS_GF=set()
 

@@ -15,6 +15,7 @@ import re
 
 from .header import Header
 from .model import Model
+from .constraint import Constraints
 from .dtype import is_int_type, is_str_type
 from .tools import gfname_from_int
 
@@ -444,6 +445,9 @@ class GalFit:
 
         if not keep_header:
             for par in self.header.get_file_pars():
+                if self.header.is_par_none(par):
+                    continue
+
                 oldfname=self.header.get_val(par)
 
                 path=os.path.join(oldwd, oldfname)
@@ -458,3 +462,61 @@ class GalFit:
             force work dir to abspath
         '''
         self.workdir=os.path.abspath(self.workdir)
+
+    # header params related to file system
+    def get_path_of_file_par(self, par, abspath=False):
+        '''
+            get path of a file par
+
+            if 'none', return None
+
+            Parameters:
+                abspath: bool
+                    if True, return abspath
+        '''
+        assert self.header.is_file_par(par)
+
+        if self.header.is_par_none(par):
+            return None
+
+        p=os.path.join(self.workdir, self.header.get_val(par))
+        if abspath:
+            p=os.path.abspath(p)
+
+        return p
+
+    def set_path_to_file_par(self, par, path, relpath=True):
+        '''
+            set path to a param related with file system
+
+            Parameters:
+                par: str
+                    parmeter name
+
+                path: str
+                    path name to set for the parameter
+
+                relpath: bool
+                    if True, use path relative to work dir `self.workdir`
+                    otherwise, just use `path` given
+        '''
+        assert self.header.is_file_par(par)
+
+        if relpath:
+            path=os.path.relpath(path, self.workdir)
+
+        self.header.set_prop(par, path)
+
+    ## handle different file
+    def load_constraint(self):
+        '''
+            load constraint file to `Constraints` object
+
+            if 'none', return empty object
+        '''
+        fname=self.get_path_of_file_par('constraints')
+
+        if fname is None:
+            return Constraints()
+
+        return Constraints(fname)
