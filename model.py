@@ -497,14 +497,14 @@ class Model(GFSlotsDict):
             free part/all model variants
                 if `pars` not given or None, all free
         '''
-        self.set_fit_state('free', pars)
+        self.set_modvar_state('free', pars)
 
     def freeze(self, pars=None):
         '''
             freeze part/all model variants
                 similar as method `free`
         '''
-        self.set_fit_state('freeze', pars)
+        self.set_modvar_state('freeze', pars)
 
     ## get methods
     def get_free_modvars(self):

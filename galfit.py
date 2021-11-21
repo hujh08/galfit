@@ -209,7 +209,7 @@ class GalFit:
             fname=gfname_from_int(fname)
 
         with open(fname, 'w') as f:
-            f.write(str(self, print_comments=print_comments))
+            f.write(self.__str__(print_comments=print_comments))
 
     # comments to galfit file
     def add_comment(self, s):
@@ -510,9 +510,9 @@ class GalFit:
         self.header.set_prop(par, path)
 
     ## handle different file
-    def load_constraint(self):
+    def load_constraints(self):
         '''
-            load constraint file to `Constraints` object
+            load constraints file to `Constraints` object
 
             if 'none', return empty object
         '''
@@ -522,6 +522,12 @@ class GalFit:
             return Constraints()
 
         return Constraints(fname)
+
+    def set_constraints(self, path, relpath=True):
+        '''
+            set constraints param with a path
+        '''
+        self.set_path_to_file_par('constraints', path, relpath=relpath)
 
     # fitlog file
     def load_fitlog(self):
