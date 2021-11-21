@@ -16,6 +16,8 @@ import re
 from .header import Header
 from .model import Model
 from .constraint import Constraints
+from .fitlog import FitLogs
+
 from .dtype import is_int_type, is_str_type
 from .tools import gfname_from_int
 
@@ -520,3 +522,11 @@ class GalFit:
             return Constraints()
 
         return Constraints(fname)
+
+    # fitlog file
+    def load_fitlog(self):
+        '''
+            load fit.log in work dir of galfit
+        '''
+        fname=os.path.join(self.workdir, 'fit.log')
+        return FitLogs(fname)
