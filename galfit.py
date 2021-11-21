@@ -52,6 +52,8 @@ class GalFit:
 
         self.__dict__['workdir']=''   # work dir, where to run galfit
 
+        self.__dict__['comments']=[]  # comments, one entry for a line
+
         # load file
         if fname is None:
             return
@@ -63,8 +65,10 @@ class GalFit:
             reset the object
         '''
         self.header.reset()
-        self.comps.clear()
+        self.clear_comps()
         self.workdir=''
+
+        self.clear_comments()
 
     # load galfit file
 
@@ -136,12 +140,26 @@ class GalFit:
                     self.comps[-1].set_prop(key, val)
 
     # string representation
-    def __str__(self):
+    def __str__(self, print_comments=True):
         '''
             user-friendly string
+
+            Parameters:
+                print_comments: bool
+                    whether to print comments
         '''
-        lines=['='*80,
-               '# IMAGE and GALFIT CONTROL PARAMETERS']
+        lines=[]
+
+        if print_comments and self.comments:
+            lines.append('')
+            
+            for entry in self.comments:
+                lines.append('# %s' % entry)
+
+            lines.append('')
+
+        lines.append('='*80)
+        lines.append('# IMAGE and GALFIT CONTROL PARAMETERS')
         lines.append(str(self.header))
         lines.append('')
         lines.append('# INITIAL FITTING PARAMETERS')
@@ -173,7 +191,7 @@ class GalFit:
         return '\n'.join(lines)
 
     ## write to file
-    def writeto(self, fname):
+    def writeto(self, fname, print_comments=True):
         '''
             write to a file
 
@@ -188,7 +206,55 @@ class GalFit:
             fname=gfname_from_int(fname)
 
         with open(fname, 'w') as f:
-            f.write(str(self))
+            f.write(str(self, print_comments=print_comments))
+
+    # comments to galfit file
+    def add_comment(self, s):
+        '''
+            add a comment
+
+            in output print, it would be shown as a line
+        '''
+        assert is_str_type(s)  # only support string type
+
+        self.comments.append(s)
+
+    def clear_comments(self):
+        '''
+            clear comments
+        '''
+        self.comments.clear()
+
+    ## frequently-used comments
+    def add_comment_item(self, key, val):
+        '''
+            add comment with pair form (key, val)
+        '''
+        assert is_str_type(key) and is_str_type(val)
+
+        s='%s: %s' % (key, val)
+        self.add_comment(s)
+
+    def add_comment_srcfile(self, src, relpath=True, prefix='source file'):
+        '''
+            add comment for source galfit file
+
+            Parameters:
+                src: str
+                    path of source file
+
+                relpath: bool
+                    if True, use path relative to work dir
+
+                prefix: str
+                    key name of the comment
+        '''
+        assert is_str_type(src) and is_str_type(prefix)
+
+        if relpath:
+            src=os.path.relpath(src, self.workdir)
+
+        self.add_comment_item(prefix, src)
 
     # frequently-used methods to access header parameters or components
 
@@ -204,7 +270,8 @@ class GalFit:
         if self.header._is_gf_method(prop):
             return getattr(self.header, prop)
 
-        super().__getattr__(prop)
+        # super().__getattr__(prop)
+        raise AttributeError('unsupported prop for __getattr__: %s' % prop)
 
     def __setattr__(self, prop, val):
         '''
@@ -286,6 +353,12 @@ class GalFit:
                 index_dup=index+1
 
         self.comps.insert(index_dup, comp)
+
+    def clear_comps(self):
+        '''
+            clear all components
+        '''
+        self.comps.clear()
 
     ### add particular model
     def add_sersic(self, *args, **kwargs):
