@@ -57,6 +57,8 @@ class GalFit:
 
         self.__dict__['comments']=[]  # comments, one entry for a line
 
+        self.__dict__['_attrs']={}    # some attributes, like Chi^2/nu
+
         # load file
         if fname is None:
             return
@@ -72,15 +74,92 @@ class GalFit:
         self.workdir=''
 
         self.clear_comments()
+        self.clear_attrs()
+
+    # attributes:
+    @property
+    def attrs(self):
+        '''
+            return copy of attributes
+
+            not expected to modify attrs in object directly
+        '''
+        return self._attrs.copy()
+
+    def add_attr(self, k, v):
+        '''
+            add an attribute
+        '''
+        self._attrs[k]=v
+
+    def get_attr(self, k):
+        '''
+            get attribute
+        '''
+        return self._attrs[k]
+
+    def clear_attrs(self):
+        self._attrs.clear()
+
+    ## frequently used
+    ### attr about src file
+    _ATTR_SRCFNAME='srcfname'
+    def add_attr_srcfname(self, v):
+        '''
+            add attribute for src file name
+        '''
+        self.add_attr(self._ATTR_SRCFNAME, v)
+
+    def get_attr_srcfname(self):
+        '''
+            return src file name
+        '''
+        return self.get_attr(self._ATTR_SRCFNAME)
+
+    ### attrs about chi square
+    def add_attrs_chisqs(self, chisq, ndof, reduce_chisq):
+        '''
+            add attributes
+                for Chi^2, ndof, Chi^2/nu
+
+            Parameters:
+                chisq, ndof, reduce_chisq: str or numbers
+        '''
+        self.add_attr('chisq', float(chisq))
+        self.add_attr('ndof', int(ndof))
+        self.add_attr('reduce_chisq', float(reduce_chisq))
+
+    def get_attr_reduce_chisq(self):
+        '''
+            return attribute of reduced chisq
+        '''
+        return self.get_attr('reduce_chisq')
+
+    def get_attr_chisq(self):
+        '''
+            return attribute of reduced chisq
+        '''
+        return self.get_attr('chisq')
+
+    def get_attr_ndof(self):
+        '''
+            return attribute of reduced chisq
+        '''
+        return self.get_attr('ndof')
 
     # load galfit file
 
     ## re pattern for line of variants: N) xxx ... # comments
     _PATTERN_VARLINE=re.compile(r'^\s*([0-9a-zA-Z.]+)\)\s+([^#]+?)(?:\s+#|\s*$)')
 
+    ## re pattern for line of Chi^2
+    _S_PAIR=r'(Chi\^2/nu|Chi\^2|Ndof)\s*=\s*([\d\.+\-]+)'
+    _PATTERN_CHISQLINE=re.compile(r'^#\s*{0}{1}{0}{1}{0}$'.format(_S_PAIR, r',\s*'))
+
     def load_file(self, fname,
                         ignore_dirname=False, force_wd_abspath=False,
-                        reset_before_load=True):
+                        reset_before_load=True,
+                        remember_srcfname=True, parse_chisq=True):
         '''
             load a galfit file
 
@@ -104,6 +183,14 @@ class GalFit:
 
                 reset_before_load: bool
                     if true, all contents are to reset before file loading
+
+                remember_srcfname: bool
+                    if true, remember file name of this source file as an attribute
+                        in which its absolute path is stored
+
+                parse_chisq: bool
+                    whether to parse chisq line
+                        which exists for result file of galfit
         '''
         if reset_before_load:
             self.reset()
@@ -119,10 +206,27 @@ class GalFit:
             if force_wd_abspath:
                 self.workdir=os.path.abspath(self.workdir)
 
+        # source file name
+        if remember_srcfname:
+            self.add_attr_srcfname(os.path.abspath(fname))
+
         # load file
         ptn_varline=self._PATTERN_VARLINE
+        ptn_chisqline=self._PATTERN_CHISQLINE
         with open(fname) as f:
             for line in f:
+                # chi square line
+                if parse_chisq:
+                    m=ptn_chisqline.match(line)
+                    if m:
+                        pairs=m.groups()
+                        items=dict(zip(pairs[::2], pairs[1::2]))
+
+                        self.add_attrs_chisqs(
+                            *[items[k] for k in 'Chi^2 Ndof Chi^2/nu'.split()])
+                        continue
+
+                # parameter line
                 m=ptn_varline.match(line)
 
                 if not m:
@@ -238,13 +342,15 @@ class GalFit:
         s='%s: %s' % (key, val)
         self.add_comment(s)
 
-    def add_comment_srcfile(self, src, relpath=True, prefix='source file'):
+    def add_comment_srcfile(self, src=None, relpath=True, prefix='source file'):
         '''
             add comment for source galfit file
 
             Parameters:
-                src: str
+                src: str, None
                     path of source file
+
+                    if None, use attribute `srcfname`
 
                 relpath: bool
                     if True, use path relative to work dir
@@ -252,6 +358,9 @@ class GalFit:
                 prefix: str
                     key name of the comment
         '''
+        if src is None:
+            src=self.get_attr_srcfname()
+
         assert is_str_type(src) and is_str_type(prefix)
 
         if relpath:
