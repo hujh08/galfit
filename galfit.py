@@ -98,6 +98,12 @@ class GalFit:
         '''
         return self._attrs[k]
 
+    def has_attr(self, k):
+        '''
+            whether or not to have an attribute
+        '''
+        return k in self._attrs
+
     def clear_attrs(self):
         self._attrs.clear()
 
@@ -117,6 +123,9 @@ class GalFit:
         return self.get_attr(self._ATTR_SRCFNAME)
 
     ### attrs about chi square
+    _ATTR_CHISQ='chisq'
+    _ATTR_NDOF='ndof'
+    _ATTR_CHISQNU='reduce_chisq'
     def add_attrs_chisqs(self, chisq, ndof, reduce_chisq):
         '''
             add attributes
@@ -125,27 +134,66 @@ class GalFit:
             Parameters:
                 chisq, ndof, reduce_chisq: str or numbers
         '''
-        self.add_attr('chisq', float(chisq))
-        self.add_attr('ndof', int(ndof))
-        self.add_attr('reduce_chisq', float(reduce_chisq))
+        self.add_attr(self._ATTR_CHISQ, float(chisq))
+        self.add_attr(self._ATTR_NDOF, int(ndof))
+        self.add_attr(self._ATTR_CHISQNU, float(reduce_chisq))
 
     def get_attr_reduce_chisq(self):
         '''
             return attribute of reduced chisq
         '''
-        return self.get_attr('reduce_chisq')
-
+        return self.get_attr(self._ATTR_CHISQNU)
     def get_attr_chisq(self):
         '''
             return attribute of reduced chisq
         '''
-        return self.get_attr('chisq')
-
+        return self.get_attr(self._ATTR_CHISQ)
     def get_attr_ndof(self):
         '''
             return attribute of reduced chisq
         '''
-        return self.get_attr('ndof')
+        return self.get_attr(self._ATTR_NDOF)
+
+    def has_attr_reduce_chisq(self):
+        '''
+            whether to have attr for reduce chisq
+        '''
+        return self.has_attr(self._ATTR_CHISQNU)
+    def has_attr_chisq(self):
+        '''
+            whether to have attr for chisq
+        '''
+        return self.has_attr(self._ATTR_CHISQ)
+    def has_attr_ndof(self):
+        '''
+            whether to have attr for reduce chisq
+        '''
+        return self.has_attr(self._ATTR_NDOF)
+
+    ## implement frequently-used attributes as property
+    @property
+    def srcfname(self):
+        return self.get_attr_srcfname()
+
+    @property
+    def chisqnu(self):
+        return self.get_attr_reduce_chisq()
+    @property
+    def chisq(self):
+        return self.get_attr_chisq()
+    @property
+    def ndof(self):
+        return self.get_attr_ndof()
+
+    @property
+    def has_chisqnu(self):
+        return self.has_attr_reduce_chisq()
+    @property
+    def has_chisq(self):
+        return self.has_attr_chisq()
+    @property
+    def has_ndof(self):
+        return self.has_attr_ndof()
 
     # load galfit file
 
@@ -159,7 +207,7 @@ class GalFit:
     def load_file(self, fname,
                         ignore_dirname=False, force_wd_abspath=False,
                         reset_before_load=True,
-                        remember_srcfname=True, parse_chisq=True):
+                        remember_srcfname=True, parse_chisq=False):
         '''
             load a galfit file
 
