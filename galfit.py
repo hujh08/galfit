@@ -122,6 +122,23 @@ class GalFit:
         '''
         return self.get_attr(self._ATTR_SRCFNAME)
 
+    def has_attr_srcfname(self):
+        '''
+            whether having src file name
+        '''
+        return self.has_attr(self._ATTR_SRCFNAME)
+
+    ### attr about menu file
+    _ATTR_INITFNAME='initfname'
+    def add_attr_initfname(self, v):
+        self.add_attr(self._ATTR_INITFNAME, v)
+
+    def get_attr_initfname(self):
+        return self.get_attr(self._ATTR_INITFNAME)
+
+    def has_attr_initfname(self):
+        return self.has_attr(self._ATTR_INITFNAME)
+
     ### attrs about chi square
     _ATTR_CHISQ='chisq'
     _ATTR_NDOF='ndof'
@@ -156,17 +173,17 @@ class GalFit:
 
     def has_attr_reduce_chisq(self):
         '''
-            whether to have attr for reduce chisq
+            whether having attr for reduce chisq
         '''
         return self.has_attr(self._ATTR_CHISQNU)
     def has_attr_chisq(self):
         '''
-            whether to have attr for chisq
+            whether having attr for chisq
         '''
         return self.has_attr(self._ATTR_CHISQ)
     def has_attr_ndof(self):
         '''
-            whether to have attr for reduce chisq
+            whether having attr for reduce chisq
         '''
         return self.has_attr(self._ATTR_NDOF)
 
@@ -174,6 +191,16 @@ class GalFit:
     @property
     def srcfname(self):
         return self.get_attr_srcfname()
+    @property
+    def initfname(self):
+        return self.get_attr_initfname()
+
+    @property
+    def has_srcfname(self):
+        return self.has_attr_srcfname()
+    @property
+    def has_initfname(self):
+        return self.has_attr_initfname()
 
     @property
     def chisqnu(self):
@@ -204,10 +231,15 @@ class GalFit:
     _S_PAIR=r'(Chi\^2/nu|Chi\^2|Ndof)\s*=\s*([\d\.+\-]+)'
     _PATTERN_CHISQLINE=re.compile(r'^#\s*{0}{1}{0}{1}{0}$'.format(_S_PAIR, r',\s*'))
 
+    ## re pattern for input menu file
+    _PATTERN_INPUTLINE=re.compile(r'^#\s*Input menu file:\s*(.*)$')
+
     def load_file(self, fname,
                         ignore_dirname=False, force_wd_abspath=False,
                         reset_before_load=True,
-                        remember_srcfname=True, parse_chisq=False):
+                        remember_srcfname=True,
+                        parse_chisq=False, parse_input=False,
+                        parse_all=False):
         '''
             load a galfit file
 
@@ -239,7 +271,19 @@ class GalFit:
                 parse_chisq: bool
                     whether to parse chisq line
                         which exists for result file of galfit
+
+                parse_input: bool
+                    whether to parse line for input menu file
+
+                parse_all: bool
+                    if True, overwrite previous 'parse_*' args to True
         '''
+        # kwargs
+        if parse_all:
+            parse_chisq=True
+            parse_input=True
+
+        # reset
         if reset_before_load:
             self.reset()
 
@@ -261,6 +305,7 @@ class GalFit:
         # load file
         ptn_varline=self._PATTERN_VARLINE
         ptn_chisqline=self._PATTERN_CHISQLINE
+        ptn_inputline=self._PATTERN_INPUTLINE
         with open(fname) as f:
             for line in f:
                 # chi square line
@@ -272,6 +317,14 @@ class GalFit:
 
                         self.add_attrs_chisqs(
                             *[items[k] for k in 'Chi^2 Ndof Chi^2/nu'.split()])
+                        continue
+
+                # input menu file line
+                if parse_input:
+                    m=ptn_inputline.match(line)
+                    if m:
+                        initf=m.groups()[0]
+                        self.add_attr_initfname(initf)
                         continue
 
                 # parameter line
@@ -687,9 +740,67 @@ class GalFit:
         self.set_path_to_file_par('constraints', path, relpath=relpath)
 
     # fitlog file
-    def load_fitlog(self):
+    def load_fitlogs(self, path=None):
         '''
             load fit.log in work dir of galfit
+
+            Parameters:
+                path: str or None
+                    if str, it means path for file 'fit.log'
+                    if None, use file in work dir
         '''
-        fname=os.path.join(self.workdir, 'fit.log')
-        return FitLogs(fname)
+        if path is None:
+            path=self.workdir
+        return FitLogs(path)
+
+    def get_fitlog(self, fitlogs=None, as_init_file=False,
+                        return_last=True, **kwargs):
+        '''
+            get related fitlog from list of fit logs
+                which might be load from file 'fit.log' in work dir
+                    or an Fitlogs object
+
+            Parameters:
+                fitlog: str, FitLogs isntance, or None
+                    if str, it means path for file 'fit.log'
+                    if None, use file in work dir
+
+                as_init_file: bool
+                    whether to use filename being loaded, i.e. `srcfname`
+                        as init file to query in fitlogs
+
+                    by default, `srcfname` is used as result file
+
+                return_last: bool
+                    whether to return last log
+
+                    if False, return list of logs
+                        see `FitLogs.get_logs_by_filename` for detail
+
+                optional kwargs: used in method
+                    `FitLogs.get_logs_by_filename`
+        '''
+        if not isinstance(fitlogs, FitLogs):
+            fitlogs=self.load_fitlogs(fitlogs)
+
+        if not self.has_attr_srcfname():
+            raise Exception('unknown src filename')
+
+        srcf=os.path.basename(self.get_attr_srcfname())
+
+        if as_init_file:
+            kws=dict(init=srcf)
+        else:
+            kws=dict(result=srcf)
+
+            # if has attr `initfname`
+            if self.has_attr_initfname():
+                initf=self.get_attr_initfname()
+                initf=os.path.basename(initf)
+
+                kws['init']=initf
+
+        if return_last:
+            kws['index']=-1
+
+        return fitlogs.get_logs_by_filename(**kws, **kwargs)

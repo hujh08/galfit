@@ -33,7 +33,8 @@
 import os
 import re
 
-from .collection import inverse_alias, is_int_type
+from .collection import inverse_alias
+from .dtype import is_int_type, is_str_type, dict_keys_tuple_to_nested
 
 class FitLogs:
     '''
@@ -50,34 +51,47 @@ class FitLogs:
     ptn_chisqs=re.compile(r'(%s)\s+=\s+([-+\d\.eE]+)' % strs_chisqs)
 
     # init
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self, path=None, **kwargs):
         '''
             load fit.log to initiate an instance
 
-            optional kwargs are used in `load_file`. see `load_file` for detail
-            some important arguments:
-                dir_log: directory for the log
+            Parameters:
+                path_log: str or None
+                    if None, return an empty instance
+
+                    if str, it means path for a file or dir
+                        which is to parse
+
+                kwargs: optional keyword arguments
+                    only deliver to method `load_file`
         '''
         self.logs=[]
 
-        if filename:
-            self.load_file(filename, **kwargs)
+        if path is not None:
+            self.load_file(path, **kwargs)
 
     ## load fit.log
-    def load_file(self, filename='fit.log', dir_log=None, parse_pars=False):
+    def load_file(self, path='', parse_pars=False):
         '''
             load fit.log file
 
             Parameters:
-                dir_log: directory of the log
+                path: str for path
+                    file or dir
+
+                    if dir, just load fit.log in the dir
 
                 parse_pars: bool
                     whether to parse parameter lines
 
             a new log is starting when meeting line starting with 'Input image'
         '''
-        if dir_log is not None:
-            filename=os.path.join(dir_log, filename)
+        if os.path.isfile(path):
+            filename=path
+        elif os.path.isdir(path) or path=='':
+            filename=os.path.join(path, 'fit.log')
+        else:
+            raise Exception('Error: path not exists: [%s]' % str(path))
 
         # parse file
         with open(filename) as f:
@@ -117,15 +131,102 @@ class FitLogs:
         for log in self.logs:
             log.parse_pars_lines()
 
-    # fetch functions
-    def get_log(self, prop):
+    # get functions
+    def get_log_by_index(self, index):
         '''
-            fetch a log
-        '''
-        if is_int_type(prop):
-            return self.logs[prop]
+            get a log by index
 
-        raise Exception('unexpected type of prop: %s' % type(prop).__name__)
+            Parameters:
+                index: int, slice or other indices object
+                    index of logs
+        '''
+        return self.logs[index]
+
+    def get_logs_by_filename(self, result=None, init=None,
+                    index=None, strip=True):
+        '''
+            get logs by involved galfit file(s)
+                that are result and initial files
+
+            return collection or one of matched logs
+
+            Examples:
+                fitlogs.get_log_by_filename('galfit.01'):
+                    return logs with result file being 'galfit.01'
+
+                fitlogs.get_log_by_filename('galfit.01', 'galfit.00') or
+                fitlogs.get_log_by_filename('galfit.01', init='galfit.00'):
+                    return logs with result file being 'galfit.01' and
+                                     init file 'galfit.00'
+
+                fitlogs.get_log_by_filename('galfit.01', index=-1):
+                    return last log with result file 'galfit.01'
+
+            Parameters:
+                result, init: str
+                    name of galfit result/init file
+
+                index: None, indexing object, str
+                    which log to return
+
+                    if None, return all logs as a list
+                    if str, only 'all', 'last', 'first', 'newest', 'oldest'
+
+                    for indexing object,
+                        it means object which could be used as index of list
+                            like int, slice
+
+                strip: bool
+                    whether to strip out element from list
+                        if only one is contained
+        '''
+        # at least one filename is given
+        assert result is not None or init is not None
+
+        # str index
+        if is_str_type(index):
+            assert index in ['all', 'last', 'first',
+                                    'newest', 'oldest']
+
+            if index=='all':
+                index=None
+
+            if index in ['last', 'newest']:
+                index=-1
+            else:  # first, oldest
+                index=0
+
+        # get logs
+        logs=self.logs
+        if result is not None:
+            assert is_str_type(result)
+            logs=[l for l in logs if l.result_file==result]
+        if init is not None:
+            assert is_str_type(init)
+            logs=[l for l in logs if l.init_file==init]
+
+        if index is None:
+            if strip and len(logs)==1:
+                return logs[0]
+            return logs
+
+        return logs[index]
+
+    def get_log(self, *args, **kwargs):
+        '''
+            flexible getter for log
+                deliver to other getter based on given arguments
+
+            2 cases:
+                just one arg and not str:
+                    use get_log_by_index
+                otherwise:
+                    use get_logs_by_filename
+        '''
+        if len(args)==1 and not is_str_type(args[0]) and not kwargs:
+            return self.get_log_by_index(args[0])
+
+        return self.get_logs_by_filename(*args, **kwargs)
 
     @property
     def last_log(self):
@@ -135,13 +236,69 @@ class FitLogs:
         if not self.logs:
             return None
 
-        return self.logs[-1]
+        return self.get_log_by_index(-1)
+
+    ## pack logs to a dict with key being result/init filename
+    def get_dict_logs(self, key_style='result', nested=True):
+        '''
+            return dict of logs
+                {key: [log, ...]}
+
+            Parameters:
+                key_style: str
+                    style of key
+
+                    valid styles:
+                        'result', 'init',
+                        'result init',
+                        'init result'
+
+                nested: bool
+                    whether to return nested dict
+
+                    work for multi-layers key,
+                        i.e. 'result init' and 'init result'
+
+                    if False, return {(key0, key1): [log, ...]}
+                    otherwise, return {key0: {key1: [log, ...]}}
+        '''
+        assert key_style in {'result', 'init',
+                              'result init',
+                              'init result'}
+
+        # map the style to attr of `FitLog` object
+        map_attrs=dict(result='result_file', init='init_file')
+
+        keynames=key_style.split()
+        assert len(keynames)>=1
+        # assert all([k in map_attrs for k in keynames])
+
+        keys=[[getattr(log, map_attrs[k]) for log in self.logs]
+                for k in keynames]
+
+        if len(keys)==1:
+            keys=keys[0]
+        else:
+            keys=zip(*keys)
+
+        dict_logs=dict(zip(keys, self.logs))
+
+        # nested dict
+        if len(keynames)>1 and nested:
+            dict_logs=dict_keys_tuple_to_nested(dict_logs)
+
+        return dict_logs
 
     ## user-friendly functions: to work like list
     def __getitem__(self, prop):
         '''
             magic medthod, user-friendly
+
+            just deliver to `get_log`
         '''
+        if isinstance(prop, tuple):
+            return self.get_log(*prop)
+
         return self.get_log(prop)
 
     ### support len()
