@@ -203,3 +203,30 @@ class Header(GFSlotsDict):
         else:
             mod=1
         self.set_gf_mod(mod)
+
+    # Parameter H: region
+    @register_method_to(_METHODS_GF)
+    def get_region_shape(self, xy=True):
+        '''
+            get shape of region
+
+            Parameters:
+                xy: bool, or str
+                    what type of shape to return, xy or yx
+
+                    for str, only 'yx' or 'xy'
+        '''
+        if is_str_type(xy):
+            assert xy=='xy' or xy=='yx'
+
+            xy=(xy=='xy')
+        else:
+            assert isinstance(xy, bool)
+
+        x0, x1, y0, y1=self.get_val('region')
+        nx, ny=x1-x0+1, y1-y0+1
+
+        if xy:
+            return nx, ny
+
+        return ny, nx
