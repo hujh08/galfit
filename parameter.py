@@ -5,9 +5,10 @@
         with property val, state, uncertainty (optional)
 '''
 
+from .number import MockFLT
 from .dtype import is_str_type, is_int_type, is_vec_type, is_number_type
 
-class Parameter:
+class Parameter(MockFLT):
     '''
         class of fitting parameter
 
@@ -17,6 +18,14 @@ class Parameter:
                 whether the parameter is free (1) or freeze (0) to fit
             uncert: uncertainty of fitting result
                 optional
+
+        use base class `MockFLT` to implement numeric operation
+            for example, p is of Parameter instance
+                p+1 (add), -p (neg), p>1 (gt)
+        It is based on the thought that priorities of properties are different,
+            and one has rather higher priority than others.
+        For this class, main property is `val`
+             and other properties could be seen as additional attrs
     '''
     FREE=1
     FREEZE=0
@@ -189,47 +198,10 @@ class Parameter:
         name=self.__class__.__name__
         return '%s(%s)' % (name, ss)
 
-    # reload numerical operator
-    def _gen_inplace_op(self, v, f):
-        '''
-            general method for inplace operation
+    # numeric operations: inherit from `MockFLT`
+    def __float__(self):
+        return float(self.val)
 
-            Parameter:
-                v: str, number, instance of Parameter
-
-                    for instance of Parameter, only use the prop `val`
-
-                f: callable
-                    accept `self.val` and v as arguments
-                    and return a value back set to `self.val`
-        '''
-        assert is_number_type(v) or is_str_type(v) or isinstance(v, type(self))
-
-        # convert to Parameter instance for str
-        if is_str_type(v):
-            return self.__iadd__(type(self)(v))
-
-        # only use the val for Parameter instance
-        if isinstance(v, type(self)):
-            v=v.val
-
-        self.set_val(f(self.val, v))
-
+    def _assign_to(self, v):
+        self.set_val(v)
         return self
-
-    def __iadd__(self, v):
-        '''
-            inplace add
-
-            see `_gen_inplace_op` for detail
-        '''
-        return self._gen_inplace_op(v, lambda x, y: x+y)
-
-    def __imul__(self, v):
-        '''
-            inplace multiply
-
-            arguments and treatment to Parameter instance
-                same as `__iadd`
-        '''
-        return self._gen_inplace_op(v, lambda x, y: x*y)

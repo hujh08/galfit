@@ -517,7 +517,6 @@ class Model(GFSlotsDict):
                     for k, v in self.get_modvars(return_dict=True).items()
                         if v.is_free()]
 
-
 ## frequently used models
 class Sersic(Model):
     '''
