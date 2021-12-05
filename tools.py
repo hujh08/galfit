@@ -34,7 +34,7 @@ def readgf_no(num):
     return readgf(gfname_from_int(num))
 
 # run galfit successively
-def rungf(init, change=None):
+def rungf(init, change=None, verbose=True):
     '''
     Parameters
     ----------
@@ -45,6 +45,9 @@ def rungf(init, change=None):
         change the given initial template
             and run galfit in new one
         if callable, it only accepts one GalFit-type argument
+
+    verbose: bool
+        verbose when running galfit
 
     Returns
     -------
@@ -69,7 +72,11 @@ def rungf(init, change=None):
     if os.path.exists(fname_r):
         os.remove(fname_r)
 
-    ecode=os.system('galfit '+fname)
+    cmd='galfit '+fname
+    if not verbose:
+        cmd+=' >/dev/null'
+
+    ecode=os.system(cmd)
     if ecode!=0 or not os.path.exists(fname_r):
         raise Exception('galfit failed for %s, exit code: %i'
                             % (fname, ecode))
