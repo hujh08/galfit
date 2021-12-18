@@ -72,6 +72,9 @@ def rungf(init, change=None, verbose=True):
     if os.path.exists(fname_r):
         os.remove(fname_r)
 
+    if not os.path.isfile(fname):
+        raise Exception('Error: init gf file not exists, [%s]' % fname)
+
     cmd='galfit '+fname
     if not verbose:
         cmd+=' >/dev/null'
