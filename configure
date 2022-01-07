@@ -64,21 +64,51 @@ install:
 EOF
 
 # subfolders
-subds=()
+subds=(photometry)
+
 for subd in "${subds[@]}"
 do
     echo "cp dir: $subd ==> $libdir/$package/$subd"
 
+    echo -e "\tmake $subd" >> $makef
+done
+
+echo >>$makef
+
+## subtasks
+echo ".PHONY: ${subds[@]}">>$makef
+
+for subd in "${subds[@]}"
+do
+    echo "subtasks: $subd"
+
+    echo "$subd:">>$makef
     echo -e "\t[ -d \$(moddir)/$subd ] || mkdir \$(moddir)/$subd" >> $makef
     echo -e "\tcp -r $subd/* \$(moddir)/$subd" >> $makef
 done
 
+echo >>$makef
+
+echo
+
 # other tasks
+echo "task: clean"
+
 echo >>$makef
 echo "clean:">>$makef
 echo -e "\trm -rf \$(moddir)/*">>$makef
 
+echo "task: rmdir"
 echo >>$makef
 echo "rmdir:">>$makef
 echo -e "\trm -rf \$(moddir)/*">>$makef
 echo -e "\trmdir \$(moddir)">>$makef
+
+echo >>$makef
+
+for subd in "${subds[@]}"
+do
+    echo "task: rm$subd"
+    echo "rm$subd:">>$makef
+    echo -e "\trm -rf \$(moddir)/$subd">>$makef
+done
