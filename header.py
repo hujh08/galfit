@@ -137,14 +137,14 @@ class Header(GFSlotsDict):
         '''
             return list of parameters related with file system
         '''
-        return list('ACDFG')
+        return list('ABCDFG')
 
     @classmethod
     def is_file_par(cls, par):
         '''
             whether a param is a parameter related with file system
         '''
-        return cls.get_std_key(par) in 'ACDFG'
+        return cls.get_std_key(par) in 'ABCDFG'
 
     def is_par_none(self, par):
         '''
