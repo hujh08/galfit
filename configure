@@ -64,7 +64,7 @@ install:
 EOF
 
 # subfolders
-subds=(photometry plot)
+subds=(photometry plot mask)
 
 for subd in "${subds[@]}"
 do
