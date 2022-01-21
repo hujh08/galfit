@@ -24,9 +24,12 @@ __all__=['gethdu', 'getdata', 'getheader',
          'writeto', 'imcopy']
 
 # hdu
-def gethdu(fitsname):
+def gethdu(fitsname, skip_none=True):
     '''
         get HDU for given extended file name
+
+        skip empty HDU by default,
+            like `astropy.io.fits.getdata`
     '''
     fname, ext, sect=parse_ext_fitsname(fitsname)
 
@@ -34,7 +37,7 @@ def gethdu(fitsname):
     hdulist=fits.open(fname)
 
     # locate HDU
-    hdu=locate_hdu(hdulist, ext)  # if ext None, return Primary
+    hdu=locate_hdu(hdulist, ext, skip_none=skip_none)
 
     # image section
     if sect is not None:
@@ -43,17 +46,20 @@ def gethdu(fitsname):
     return hdu
 
 ## get data or header individually
-def getdata(fitsname):
+def getdata(fitsname, **kwargs):
     '''
         get data for extended FITS name
-    '''
-    return gethdu(fitsname).data
 
-def getheader(fitsname):
+        skip empty HDU by default,
+            like `astropy.io.fits.getdata`
+    '''
+    return gethdu(fitsname, **kwargs).data
+
+def getheader(fitsname, **kwargs):
     '''
         get header for extended FITS name
     '''
-    return gethdu(fitsname).header
+    return gethdu(fitsname, **kwargs).header
 
 # write fits: support overwrite syntax, !example.fits
 def writeto(fname, data, extfname=True, **kwargs):

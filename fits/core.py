@@ -12,13 +12,14 @@ import numpy as np
 from ..dtype import is_int_type
 
 # bottom function to locate HDU
-def locate_hdu(hdulist, ext=None):
+def locate_hdu(hdulist, ext=None, skip_none=False):
     '''
         locate a hdu in given hdulist
 
         Parameter:
             ext: None, int, or tuple
                 if None, return first HDU
+                            or 1st not-none HDU if `skip_none`
                 if int, it is index of target HDU in list
                 if tuple, two types:
                     1 element : same as int
@@ -29,9 +30,22 @@ def locate_hdu(hdulist, ext=None):
                         extname:  value of EXTNAME or HDUNAME keyword
                         extver:   value of EXTVER keyword
                         xtension: value of XTENSION keyword
+
+            skip_none: bool, default: False
+                whether to skip empty HDU, which has no data
+
+                only acts when ext is None
     '''
     if ext is None:
-        return hdulist[0]
+        if not skip_none:
+            return hdulist[0]
+
+        # skip none
+        for hdu in hdulist:
+            if hdu.data is None:
+                continue
+            return hdu
+        raise ValueError('all HDUs are empty')
 
     # extno
     if is_int_type(ext):
