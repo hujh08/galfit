@@ -11,7 +11,7 @@ import re
 
 import numpy as np
 
-from astropy.io import fits
+# from astropy.io import fits
 from astropy.visualization import AsinhStretch, ImageNormalize
 
 from matplotlib.colors import Normalize
@@ -20,6 +20,7 @@ import datapy.plot as dplt
 
 from .line import Line2D
 from galfit.galfit import GalFit
+import galfit.fits as gfits
 
 class FitPlot:
     '''
@@ -74,17 +75,7 @@ class FitPlot:
         '''
             load FITS file
         '''
-        if os.path.exists(fname):
-            return fits.getdata(fname)
-
-        # FITS name with extension
-        pextf=re.compile(r'(.*)\[(\d+)\]$')
-        m=pextf.match(fname)
-        assert m, 'unknown filename: %s' % fname
-
-        fname, ext=m.groups()
-        ext=int(ext)
-        return fits.getdata(fname, ext=ext)
+        return gfits.getdata(fname)
 
     ## mask file
     def load_mask(self, mask):
