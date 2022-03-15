@@ -13,6 +13,7 @@ from astropy.io import fits
 
 from galfit.galfit import GalFit
 import galfit.fits as gfits
+from galfit.tools import gfname_from_int
 
 # arguments
 parser=argparse.ArgumentParser()
