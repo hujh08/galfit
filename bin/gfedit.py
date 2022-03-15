@@ -9,6 +9,8 @@
 import os
 import argparse
 
+import numbers
+
 import numpy as np
 from astropy.io import fits
 
@@ -48,6 +50,7 @@ if not overwrite and os.path.exists(fout):
 
 ## other arguments
 maskval=np.nan
+maskval_int=0    # or 0 for int  
 
 print()
 
@@ -91,7 +94,11 @@ if fmsk!='none':
     print('load mask file')
     mask=load_mask(fmsk, shape=(ny, nx))
 
-    img[mask>0]=maskval
+    mark=(mask>0)
+    if issubclass(img.dtype.type, numbers.Integral):
+        img[mark]=maskval_int
+    else:
+        img[mark]=maskval
 else:
     print('no mask')
 
