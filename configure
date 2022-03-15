@@ -6,6 +6,7 @@ function USAGE() {
     echo "  -h, --help      help"
     echo "      --prefix    prefix directory"
     echo "      --libdir    library directory"
+    echo "      --bindir    binary directory"
     echo "      --package   package name"
     echo "  -c, --clean     rm makefile"
 }
@@ -15,10 +16,11 @@ makef=makefile
 # parse options
 prefix='/usr/local'
 libdir=''
+bindir=''
 package=`basename $PWD`
 
 ARGS=`getopt -o hc \
-             --long help,prefix:,libdir:,package:,clean \
+             --long help,prefix:,libdir:,bindir:,package:,clean \
              -n $0 -- "$@"`
 if [ $? != 0 ]; then USAGE; exit -1; fi
 
@@ -31,6 +33,7 @@ do
         -c|--clean) echo "remove $makef"; rm $makef; exit;;
            --prefix) prefix=$2; shift 2;;
            --libdir) libdir=$2; shift 2;;
+           --bindir) bindir=$2; shift 2;;
            --package) package=$2; shift 2;;
         --) shift; break;;
     esac
@@ -44,14 +47,24 @@ else
     if [ x"$libdir" != x"/" ]; then libdir=${libdir%/}; fi
 fi
 
+if [ x"$bindir" == x ]
+then
+    if [ x"$prefix" != x"/" ]; then prefix=${prefix%/}/; fi
+    bindir=${bindir}bin
+else
+    if [ x"$bindir" != x"/" ]; then bindir=${bindir%/}; fi
+fi
+
 echo "package: $package"
 echo "libdir: $libdir"
+echo "bindir: $bindir"
 echo
 
 cat >$makef <<EOF
 package=$package
 
 libdir=$libdir
+bindir=$bindir
 
 moddir=\$(libdir)/\$(package)
 
@@ -71,6 +84,20 @@ do
     echo "cp dir: $subd ==> $libdir/$package/$subd"
 
     echo -e "\tmake $subd" >> $makef
+done
+
+echo >>$makef
+
+# bin
+echo "bin task"
+echo -e "\t[ -d \$(bindir) ] || mkdir \$(bindir)" >> $makef
+for src in `ls bin/*.py`
+do
+    fname=$(basename "$src")
+    dst="$bindir/${fname%%.py}"
+    echo "    cp $src ==> $dst"
+    echo -e "\tcp $src $dst" >> $makef
+    echo -e "\tchmod a+x $dst" >> $makef
 done
 
 echo >>$makef
