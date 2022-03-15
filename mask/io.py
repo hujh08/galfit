@@ -48,8 +48,9 @@ def coords_to_mask_array(coords, nx, ny):
     mask=np.zeros((ny, nx), dtype=int)
 
     coords=np.asarray(coords)
-    xs, ys=coords.T-1  # -1 to array index, starting from 0, not 1
-    mask[ys, xs]=1
+    if np.size(coords):
+        xs, ys=coords.T-1  # -1 to array index, starting from 0, not 1
+        mask[ys, xs]=1
 
     return mask
 
