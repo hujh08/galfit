@@ -37,7 +37,7 @@ def load_mask(fname, **kwargs):
         determine fits or txt based on suffix of `fname`
     '''
     if fname.endswith('.fits'):
-        return load_mask_fits(fname, **kwargs)
+        return load_mask_fits(fname)
     else:
         return load_mask_txt(fname, **kwargs)
 
