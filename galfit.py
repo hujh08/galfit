@@ -636,7 +636,7 @@ class GalFit:
         self.set_modvar_state_comps('freeze', comps)
 
     # work dir
-    def chdir_to(self, dest, keep_header=False):
+    def chdir_to(self, dest, keep_header=False, skip_output=True):
         '''
             change work dir to new one `dest`
 
@@ -649,6 +649,9 @@ class GalFit:
 
                     if not, all header parameters related with file system would
                         be changed to follow location in file system
+
+                skip_output: bool
+                    if True, not change path of output image
         '''
         assert is_str_type(dest)
 
@@ -656,7 +659,7 @@ class GalFit:
         newwd=dest
 
         if not keep_header:
-            for par in self.header.get_file_pars():
+            for par in self.header.get_file_pars(skip_output=skip_output):
                 if self.header.is_par_none(par):
                     continue
 

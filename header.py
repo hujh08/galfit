@@ -133,11 +133,14 @@ class Header(GFSlotsDict):
 
     # parameters related with file system
     @classmethod
-    def get_file_pars(cls):
+    def get_file_pars(cls, skip_output=False):
         '''
             return list of parameters related with file system
         '''
-        return list('ABCDFG')
+        if not skip_output:
+            return list('ABCDFG')
+
+        return list('ACDFG')  # 'B', output image
 
     @classmethod
     def is_file_par(cls, par):
