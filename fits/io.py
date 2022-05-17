@@ -24,14 +24,20 @@ __all__=['gethdu', 'getdata', 'getheader',
          'writeto', 'imcopy']
 
 # hdu
-def gethdu(fitsname, skip_none=True):
+def gethdu(fitsname, skip_none=True, ext=None, sect=None):
     '''
         get HDU for given extended file name
 
         skip empty HDU by default,
             like `astropy.io.fits.getdata`
+
+        :param ext, sect: None or extension
+            used to specify `ext`, `sect` explicitly
     '''
-    fname, ext, sect=parse_ext_fitsname(fitsname)
+    if ext is None and sect is None:
+        fname, ext, sect=parse_ext_fitsname(fitsname)
+    else:
+        fname=fitsname
 
     # hdulist
     hdulist=fits.open(fname)

@@ -7,6 +7,8 @@
         implemented in module `fitsname`
 '''
 
+import numbers
+
 import numpy as np
 
 from ..dtype import is_int_type
@@ -113,7 +115,7 @@ def image_section(hdu, sect=None):
             section is also done to WCS if existed
 
         Parameter:
-            sect: None, or list of tuple (start, end, stop)
+            sect: None, or list of tuple (start, end, stop) or flatten list
                 if None, return a copy
 
                 order of tuple in sect is same as 'NAXIS' in header
@@ -142,7 +144,15 @@ def image_section(hdu, sect=None):
 ## normalize image section tuple according to length in an axis
 def normal_sectlist(sectlist, naxis):
     '''
-        normal list of sect tuple acoording to naxis
+        normal sect list acoording to naxis
+
+        `sectlist`:  list of sect tuple or flatten list
+            sect tuple: (start, end, step) or (start, end) or (end,)
+
+            flatten list: strip all tuples
+                must (start, end, step) or (start, end)
+                e.g. [x0, x1, y0, y1]
+                    for [(x0, x1), (y0, y1)]
 
         `naxis`: number of pixels in all axes
             order of tuple in list is same as 'NAXIS' in header
@@ -152,6 +162,16 @@ def normal_sectlist(sectlist, naxis):
 
     '''
     nax=len(naxis)
+
+    # flatten list
+    isflat=all([t is None or isinstance(t, numbers.Number) for t in sectlist])
+    if isflat:
+        n=len(sectlist)
+        l=n//nax
+        if l>1 and n==nax*l:
+            # only support (start, end, step) or (start, end)
+            # and same for all sect items
+            sectlist=[sectlist[i:(i+l)] for i in range(0, n, l)]
 
     # complete :param `sectlist` to the same as dims
     assert len(sectlist)<=nax
@@ -264,7 +284,7 @@ def imgsect_crop_data(data, sect=None):
         crop image data for given section `sect`
 
         Parameter:
-            sect: list of tuple (start, end, step)
+            sect: list of tuple (start, end, step) or flatten list
                 `start` and `end` start from 1, not 0 as ndarray index
 
                 order of tuple in list are x, y, ...
