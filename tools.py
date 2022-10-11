@@ -6,6 +6,21 @@
 
 import os
 
+from .fitlog import FitLogs
+
+# latest gf file in given dir
+def latest_gf_in_dir(dirname):
+    '''
+        latest gf file in  given dir
+    '''
+    assert os.path.isdir(dirname), 'only support dirname as arg'
+
+    fitlogs=FitLogs(dirname)
+
+    fname=os.path.join(dirname, fitlogs[-1].result_file)
+
+    return fname
+
 # get gf filename from int
 def gfname_from_int(num, dirname=None):
     '''
