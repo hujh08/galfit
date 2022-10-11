@@ -11,7 +11,7 @@ import re
 
 import numpy as np
 
-# from astropy.io import fits
+from astropy.io import fits
 from astropy.visualization import AsinhStretch, ImageNormalize
 
 from matplotlib.colors import Normalize
@@ -561,10 +561,16 @@ class FitPlot:
             self._sampler_mod.append(sampler)
 
     ## sample in obs image
-    def plot_sampler_obs(self, axs, sampler, s=2,
-                            marker='o', elinewidth=1, **kwargs):
+    def plot_sampler_obs(self, axs, sampler, show_mask_points=True,
+                            s=2, marker='o', elinewidth=1, 
+                            kws_mplot={}, **kwargs):
         '''
             plot a line sampler in obs and residual 
+
+            :param show_mask_points: bool, default
+                whether to show mask points
+
+                `kws_mplot`: keyword arguments for mask points plot
         '''
         axobs, axre=axs
 
@@ -579,26 +585,35 @@ class FitPlot:
             yerr=sampler(self._sigma)
 
         # mask
+        ysobs_mask=None
         if self._mask is not None:
             mask=sampler(self._mask)
+
+            if show_mask_points:
+                m=np.logical_not(mask)
+
+                xs_mask=xs[m]
+                ysobs_mask=ysobs[m]
+                ysre_mask=ysre[m]
+                yerr_mask=yerr[m] if yerr is not None else None
 
             xs=xs[mask]
             ysobs=ysobs[mask]
             ysre=ysre[mask]
-            yerr=yerr[mask]
+            yerr=yerr[mask] if yerr is not None else None
 
         # plot
-        if yerr is None:
-            kwargs.update(s=s)
+        kws1=dict(marker=marker, markersize=s, elinewidth=elinewidth)
 
-            axobs.scatter(xs, ysobs, **kwargs)
-            axre.scatter(xs, ysre, **kwargs)
-        else:
-            kwargs.update(marker=marker, markersize=s,
-                          ls='', elinewidth=elinewidth)
+        axobs.errorbar(xs, ysobs, yerr=yerr, ls='', **kws1, **kwargs)
+        axre.errorbar(xs, ysre, yerr=yerr, ls='', **kws1, **kwargs)
 
-            axobs.errorbar(xs, ysobs, yerr=yerr, **kwargs)
-            axre.errorbar(xs, ysre, yerr=yerr, **kwargs)
+        if ysobs_mask is not None:
+            for k, v in kws1.items():
+                if k not in kws_mplot:
+                    kws_mplot[k]=v
+            axobs.errorbar(xs_mask, ysobs_mask, yerr=yerr_mask, ls='', **kws_mplot)
+            # axre.errorbar(xs_mask, ysre_mask, yerr=yerr_mask, ls='', **kws_mplot)
 
     def plot_samplers_obs(self, **kwargs):
         '''
@@ -758,7 +773,8 @@ class FitPlot:
 
     ### pack of all samplers plotting
     def plot_lines(self, ylog=True, ylim_re='sym', ylim_obs=None,
-                         kwargs_obs={}, kwargs_mod={}, kwargs_line={}):
+                        show_mask_points=True, kws_mplot={},
+                        kws_obs={}, kws_mod={}, kws_line={}):
         '''
             plot lines for interpolations along lines
 
@@ -770,15 +786,21 @@ class FitPlot:
                 single float y: (-y, y)
 
                 'sym': means symmetrical ylim
+
+            :param show_mask_points: bool
+                whether to show mask points in obs image
+
+                `kws_mplot` to specify distinguished style with non-masked points
         '''
         # obs and re
-        self.plot_samplers_obs(**kwargs_obs)
+        self.plot_samplers_obs(show_mask_points=show_mask_points, 
+            kws_mplot=kws_mplot, **kws_obs)
 
         # mod
-        self.plot_samplers_mod(**kwargs_mod)
+        self.plot_samplers_mod(**kws_mod)
 
         # add sampler curve in image
-        self.plot_samplers_in_image(**kwargs_line)
+        self.plot_samplers_in_image(**kws_line)
 
         # decorate
         if ylog:
@@ -833,14 +855,17 @@ class GFPlot(FitPlot):
         combine with galfit file
     '''
     def __init__(self, fname, mask=True, sigma=True, sky=True,
-                       run_gf=False, verbose_gf=False):
+                       run_gf=None, verbose_gf=False):
         '''
             init
 
             load image data from img block related in galfit file
 
-            :param run_gf: bool
+            :param run_gf: None, bool
                 whether to run galfit before init
+
+                if None, output file would be checked
+                    if the output not match with gf file, run gf again
 
                 if True, run with imgblock model
         '''
@@ -849,9 +874,31 @@ class GFPlot(FitPlot):
         # imgblock
         fblk=gf.get_path_of_file_par('output')
 
+        # check output file
+        blkhdus=fits.open(fblk)
+        if run_gf is None:
+            if len(blkhdus)!=4:
+                run_gf=True
+            else:
+                dname=os.path.dirname(fblk)
+                hdr=blkhdus[2].header
+                gfile_blk=os.path.join(dname, hdr['LOGFILE'])
+                if not os.path.isfile(gfile_blk):  # happens when only create model image
+                    gfile_blk=os.path.join(dname, hdr['INITFILE'])
+
+                if not os.path.samefile(gfile_blk, gf.srcfname):
+                    run_gf=True
+                else:
+                    run_gf=False
+
         # run gf
         if run_gf:
             self._run_gf_imgblock(fname, verbose=verbose_gf)
+
+        # region
+        if mask or sigma:
+            x1, x2, y1, y2=gf.region
+            sreg=f'[{x1}:{x2},{y1}:{y2}]'
 
         # mask
         kwargs={}
@@ -860,14 +907,14 @@ class GFPlot(FitPlot):
             mask=gf.get_path_of_file_par('mask')
             if mask is None:
                 print('warning: mask par not set')
-            kwargs['mask']=mask
+            kwargs['mask']=mask+sreg
 
         # sigma
         if sigma:
             sigma=gf.get_path_of_file_par('sigma')
             if sigma is None:
                 print('warning: sigma par not set')
-            kwargs['sigma']=sigma
+            kwargs['sigma']=sigma+sreg
 
         # sky
         if sky:
@@ -886,7 +933,7 @@ class GFPlot(FitPlot):
             kwargs['sky']=sky
 
         # init FitPlot
-        super().__init__(fblk+'[1]', fblk+'[2]', **kwargs)
+        super().__init__(blkhdus[1].data, blkhdus[2].data, **kwargs)
 
         self._gf=gf
 
@@ -912,6 +959,36 @@ class GFPlot(FitPlot):
             raise RuntimeError('galfit failed for file: %s' % fname)
 
     # add line from model
+    def add_line_thru_mod_center(self, i, angle, r, angle_to_pa=False):
+        '''
+            add line through center of a model
+
+            :param r: float or 2-tuple of float
+                range to plot
+
+            :param angle_to_pa: bool
+                whethen the arg `angle` is given relative to position angle
+                if False, relative to x-axis
+        '''
+        mod=self._gf.comps[i]
+
+        x0, y0=self._gf.region[::2]  # fit region
+        xc, yc=mod.x0.val-x0, mod.y0.val-y0
+
+        # angle
+        if angle_to_pa:
+            angle+=mod['pa']+90
+
+        # range of line
+        if isinstance(r, numbers.Number):
+            assert r>0
+            lrange=(-r, r)
+        else:
+            assert len(r)==2
+            lrange=r
+
+        self.add_line(xc, yc, angle, lrange=lrange)
+
     def add_line_mod(self, i, which='both', par='pa',
                             rpar='auto', rscale=2,
                             ba='auto'):
