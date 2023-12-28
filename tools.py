@@ -7,6 +7,7 @@
 import os
 
 from .fitlog import FitLogs
+from ._util import run_system_cmd
 
 # latest gf file in given dir
 def latest_gf_in_dir(dirname):
@@ -49,25 +50,34 @@ def readgf_no(num):
     return readgf(gfname_from_int(num))
 
 # run galfit successively
-def rungf(init, change=None, verbose=True):
+def rungf(init, change=None, timeout=None, verbose=True):
     '''
-    Parameters
-    ----------
-    init: integer
-        the number of initial number
+        Parameters
+        ----------
+        init: integer
+            the number of initial number
 
-    change: callable or None
-        change the given initial template
-            and run galfit in new one
-        if callable, it only accepts one GalFit-type argument
+        change: callable or None
+            change the given initial template
+                and run galfit in new one
+            if callable, it only accepts one GalFit-type argument
 
-    verbose: bool
-        verbose when running galfit
+        timeout: None, number
+            timeout for galfit run
 
-    Returns
-    -------
-    number of galfit result file
+            if None,
+                no timeout limite
+            if number,
+                in unit of seconds
+
+        verbose: bool
+            verbose when running galfit
+
+        Returns
+        -------
+        number of galfit result file
     '''
+    # run gf
     fno=init
     fname=gfname_from_int(fno)
 
@@ -90,13 +100,11 @@ def rungf(init, change=None, verbose=True):
     if not os.path.isfile(fname):
         raise Exception('Error: init gf file not exists, [%s]' % fname)
 
-    cmd='galfit '+fname
-    if not verbose:
-        cmd+=' >/dev/null'
-
-    ecode=os.system(cmd)
+    cmd=['galfit', fname]
+    kwargs=dict(stdout=verbose, timeout=timeout)
+    ecode=run_system_cmd(cmd, **kwargs)
     if ecode!=0 or not os.path.exists(fname_r):
-        raise Exception('galfit failed for %s, exit code: %i'
+        raise Exception('Error: galfit failed for %s, exit code: %i'
                             % (fname, ecode))
 
     return fno_r
