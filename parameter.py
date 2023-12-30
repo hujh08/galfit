@@ -141,7 +141,7 @@ class Parameter(MockFLT):
 
     ## state operation
     @classmethod
-    def state_of_comb_pars(cls, p0, p1):
+    def state_of_comb_pars(cls, p0, p1, *args):
         '''
             state of a parameter by combing two pars
 
@@ -149,10 +149,14 @@ class Parameter(MockFLT):
         '''
         if isinstance(p0, cls):
             p0=p0.state
-        if isinstance(p1, cls):
-            p1=p1.state
 
-        return int(bool(p0+p1))
+        for pi in [p1, *args]:
+            if isinstance(pi, cls):
+                pi=pi.state
+
+            p0=int(bool(p0+pi))
+
+        return p0
 
     ## intercept other setting
     def __setattr__(self, prop, val):

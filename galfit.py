@@ -225,11 +225,13 @@ class GalFit:
     # load galfit file
 
     ## re pattern for line of variants: N) xxx ... # comments
-    _PATTERN_VARLINE=re.compile(r'^\s*([0-9a-zA-Z.]+)\)\s+([^#]+?)(?:\s+#|\s*$)')
+    _PATTERN_VARLINE=re.compile(r'^\s*([0-9a-zA-Z.]+)\)\s+'
+                                r'([^#]+?)(?:\s+#|\s*$)')
 
     ## re pattern for line of Chi^2
     _S_PAIR=r'(Chi\^2/nu|Chi\^2|Ndof)\s*=\s*([\d\.+\-]+)'
-    _PATTERN_CHISQLINE=re.compile(r'^#\s*{0}{1}{0}{1}{0}$'.format(_S_PAIR, r',\s*'))
+    _PATTERN_CHISQLINE=re.compile((r'^#\s*' '{0}{1}{0}{1}{0}' '$')
+                                            .format(_S_PAIR, r',\s*'))
 
     ## re pattern for input menu file
     _PATTERN_INPUTLINE=re.compile(r'^#\s*Input menu file:\s*(.*)$')
@@ -515,6 +517,28 @@ class GalFit:
         '''
         return iter(self.comps)
 
+    # add header params to components
+    def set_psize_to_comps(self, force=False):
+        '''
+            set pixel size to models which need it
+                e.g. edgeon disk
+        '''
+        psize=self.header.psize
+        for comp in self.comps:
+            if not comp.need_psize():
+                continue
+
+            comp.set_psize(psize, force=force)
+
+    def set_psize_to_comp(self, index, force=False):
+        '''
+            set psize to ith comp
+        '''
+        comp=self.comps[index]
+        psize=self.header.psize
+
+        comp.set_psize(psize, force=force)
+
     # methods about model components
     ## add/remove/duplicate model
     def add_comp(self, mod, vals=None, index=None, keys=None, Z=None):
@@ -587,7 +611,7 @@ class GalFit:
         self.add_comp('sky', *args, **kwargs)
 
     ## model transform inplace
-    def trans_comp_to(self, index, mod, warn=True):
+    def trans_comp_to(self, index, mod, warn=True, inplace=True):
         '''
             transform component to a given model
 
@@ -597,10 +621,29 @@ class GalFit:
 
                 mod: str, galfit model class or instance
                     see `Model:mod_trans_to` for detail
+
+                inplace: bool, default True
+                    whether to change comp in-place
+
+                    if not,
+                        return changed comp
         '''
         comp=self.comps[index]
 
-        self.comps[index]=comp.mod_trans_to(mod, warn=warn)
+        # set psize
+        psize=self.header.psize
+        if comp.need_psize():
+            comp.set_psize(psize, force=False)
+
+        # trans
+        comp=comp.mod_trans_to(mod, warn=warn)
+        if comp.need_psize():
+            comp.set_psize(psize, force=False)
+
+        if not inplace:
+            return comp
+
+        self.comps[index]=comp
 
     # methods to handle all model variants of all components
     ## free/freeze state

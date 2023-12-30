@@ -12,11 +12,16 @@
         these are just empirical treating
 '''
 
+import numbers
+
 import warnings
 
 from .collection import GFSlotsDict
 from .dtype import is_str_type, is_vec_type
 from .parameter import Parameter
+
+from .photometry.photometry import (mag_to_mu, mu_to_mag,
+                                    corr_mu_by_psec2)
 
 class Model(GFSlotsDict):
     '''
@@ -118,10 +123,22 @@ class Model(GFSlotsDict):
             wheter the model need pixel size (Parameter P in header of galfit file)
                 to calculate suface brightness in Parameter (3)
                     instead of integrated magnitude
+
+            model which needs it
+                should implement method `set_psize`
         '''
         mods=set(['nuker', 'ferrer', 'king', 'edgedisk'])
         name=cls.get_model_name()
         return name in mods
+
+    def set_psize(self, dxdy, force=False):
+        '''
+            set pixel size
+        '''
+        if not self.need_psize():
+            raise AttributeError('not need pixel size')
+
+        raise NotImplementedError('not implemented yet')
 
     ## general way for transformation between models
     def _gen_to_other_model(self, mod, warn=True):
@@ -620,11 +637,20 @@ class Expdisk(Model):
 
         return m
 
-    def to_edgedisk(self, warn=True):
+    def to_edgedisk(self, warn=True, psec2=1):
         '''
             to Edge-on disk model
 
             inverse operation is `Edgedisk.to_expdisk`
+
+            :param psec2: None or float
+                pixel area in unit of 'arcsec^2'
+                    product of `Plate scale` in galfit header
+
+                used to convert mag to mu
+
+                if None,
+                    no change
         '''
         name='edgedisk'
         if warn:
@@ -642,11 +668,23 @@ class Expdisk(Model):
         # scale height ('4' in edgedisk) from ba ('9' in expdisk) and scale length
         ba=self.ba
 
-        hs=rs.val*ba.val
+        vhs=rs.val*ba.val*2  # vertical profile: sech^2(h/hs)
+                             #     ~ exp(-2h/hs) for h >> hs
         shs=Parameter.state_of_comb_pars(rs, ba)  # free/freeze
 
         ## free to fit if rs or ba is free
-        m.set_prop('4', (hs, shs))
+        m.set_prop('4', (vhs, shs))
+
+        # mag to mu
+        mag=self.mag
+
+        vmag, vrs=mag.val, rs.val
+        vmu=mag_to_mu(vmag, vrs, vhs, psec2=psec2)
+
+        smu=Parameter.state_of_comb_pars(mag, rs, ba)
+        m.set_prop('3', (vmu, smu))
+
+        m.set_psize(psec2)
 
         return m
 
@@ -668,11 +706,93 @@ class Edgedisk(Model):
         '5' : 'disk scale-length [Pixels]',
     }
 
+    def __init__(self, *args, psec2=None, **kwargs):
+        '''
+            init work
+
+            additional param: `psec2`
+                dx*dy in unit sec^2
+
+                if None,
+                    unknown `psec2` yet
+        '''
+        super().__init__(*args, **kwargs)
+
+        self._set_psec2(psec2)
+
+    # set pscale
+    def _set_psec2(self, psec2):
+        self.__dict__['_psec2']=psec2
+
+    def set_psize(self, dxdy, force=False):
+        '''
+            force to set pscale
+                without to change `mu`
+
+            if not `force`,
+                also change `mu` correspondingly
+                    if init pscale not None
+
+            dxdy: float or 2-tuple
+                square of pscale, dx*dy
+                    in unit, arcsec^2
+
+                if 2-tuple,
+                    (dx, dy)
+        '''
+        if not isinstance(dxdy, numbers.Number):
+            dx, dy=dxdy
+            dxdy=dx*dy
+
+        oldpsec2=self._psec2
+        self._set_psec2(dxdy)
+
+        if force or (oldpsec2 is None):
+            return
+
+        # change mu
+        d=corr_mu_by_psec2(self._psec2, oldpsec2)
+        self.mu+=d
+
+    def change_pscale(self, dxdy):
+        '''
+            change pscale
+
+            `mu` is correspondingly changed
+        '''
+        self.set_psize(dxdy, force=False)
+
+    # mag of model
+    def mag_of_mod(self, psec2=None):
+        '''
+            total magnitude of model
+        '''
+        if psec2 is None:
+            psec2=self._psec2
+
+            if psec2 is None: # still None
+                raise ValueError('unknown `psec2`')
+
+        keys=['mu', 'rs', 'hs']
+        mu, rs, hs=self.get_modvars(keys, fetch_val=True)
+
+        return mu_to_mag(mu, rs, hs, psec2=psec2)
+
+    # to other model
     def to_expdisk(self, warn=True):
         '''
             to Exponential disk model
 
             inverse operation is `Expdisk.to_edgedisk`
+
+            :param psec2: None or float
+                pixel area in unit of 'arcsec^2'
+                    product of `Plate scale` in galfit header
+
+                used to convert mag to mu
+
+                if None,
+                    no change
         '''
         name='expdisk'
         if warn:
@@ -691,11 +811,17 @@ class Edgedisk(Model):
         hs=self.hs
 
         assert hs.val>0
-        ba=hs.val/rs.val
+        ba=(hs.val/2)/rs.val
         sba=Parameter.state_of_comb_pars(rs, hs)  # free/freeze
 
         ## free to fit if rs or ba is free
         m.set_prop('9', (ba, sba))
+
+        # mu to mag
+        vmag=self.mag_of_mod()
+        smag=Parameter.state_of_comb_pars(self.mu, rs, hs)
+
+        m.set_prop('3', (vmag, smag))
 
         return m
 

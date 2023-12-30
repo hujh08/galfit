@@ -6,6 +6,9 @@
 
 import numpy as np
 
+__all__=['mag_to_ftot',
+         'mag_to_mu', 'mu_to_mag']
+
 def mag_to_ftot(mag, texp=1, zpt=20):
     '''
         use 'exponential disk model' as example
@@ -36,6 +39,7 @@ def mag_to_ftot(mag, texp=1, zpt=20):
     '''
     return 10**(-(mag-zpt)/2.5)*texp
 
+# magnitude and surface brightness
 def mu_to_mag(mu, rs, hs, psec2=1):
     '''
         parameters is used in models, like 'edge-on disk'
@@ -64,7 +68,7 @@ def mu_to_mag(mu, rs, hs, psec2=1):
             mag - mu = -2.5 log10 (2*pi*rs*hs*dxy)
 
         ===============
-        
+
         Parameters:
             mu, rs, hs: float
                 input surface brightness, scale radius and scale height
@@ -76,4 +80,24 @@ def mu_to_mag(mu, rs, hs, psec2=1):
                     same as zeropoint,
                         not actually used in model building
     '''
-    return mu-2.5*np.log10(2*np.pi*rs*hs*psec2)
+    d=corr_mu_from_mag(rs, hs, psec2=psec2)
+    return mu-d
+
+def mag_to_mu(mag, rs, hs, psec2=1):
+    '''
+        reverse of `mu_to_mag`
+    '''
+    d=corr_mu_from_mag(rs, hs, psec2=psec2)
+    return mag+d
+
+## correct of mu from rs, hs, mu
+def corr_mu_from_mag(rs, hs, psec2=1):
+    d_rhs=2.5*np.log10(2*np.pi*rs*hs)
+    d_psec2=corr_mu_by_psec2(psec2)
+    return d_rhs+d_psec2
+
+def corr_mu_by_psec2(psec2, psec2_old=1):
+    '''
+        correct to mu by change of `psec2`
+    '''
+    return 2.5*np.log10(psec2/psec2_old)
