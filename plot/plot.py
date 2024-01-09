@@ -37,8 +37,8 @@ class FitPlot:
         self._mod=self.load_img(mod)
 
         if sky is not None:
-            self._obs-=sky
-            self._mod-=sky
+            self._obs=self._obs-sky
+            self._mod=self._mod-sky
 
         # residual
         self._re=self._obs-self._mod
