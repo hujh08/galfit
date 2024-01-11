@@ -137,7 +137,14 @@ class Model(GFSlotsDict):
         '''
         if not self.need_psize():
             raise AttributeError('not need pixel size')
+        raise NotImplementedError('not implemented yet')
 
+    def has_psize_set(self, ):
+        '''
+            whether pixel size st
+        '''
+        if not self.need_psize():
+            raise AttributeError('not need pixel size')
         raise NotImplementedError('not implemented yet')
 
     ## general way for transformation between models
@@ -209,7 +216,7 @@ class Model(GFSlotsDict):
         assert is_str_type(mod)
         return hasattr(cls, 'to_'+mod)
 
-    def mod_trans_to(self, mod, **kwargs):
+    def mod_trans_to(self, mod, psize=1, **kwargs):
         '''
             transform to a mod
 
@@ -230,7 +237,12 @@ class Model(GFSlotsDict):
         mod_now=self.get_model_name()
 
         if mod==mod_now:
-            self.copy()
+            return self.copy()
+
+        if self.need_psize() and not self.has_psize_set():
+            mod1=self.copy()
+            mod1.set_psize(psize, force=False)
+            return mod1.mod_trans_to(mod, **kwargs)
 
         if self.has_direct_trans(mod):
             return getattr(self, 'to_'+mod)(**kwargs)
@@ -626,7 +638,7 @@ class Expdisk(Model):
                     % (name0, name))
 
         m=self._gen_to_other_model(name, warn=False)
-        if m.is_val_known_key('rs'):
+        if m.is_val_known_key('re'):
             m.re*=1.678   # rs to re (effective radius)
         m.n=1
         m.n.freeze()  # explicitly freeze
@@ -721,6 +733,12 @@ class Edgedisk(Model):
         self._set_psec2(psec2)
 
     # set pscale
+    def has_psize_set(self):
+        '''
+            whether psize setted
+        '''
+        return self._psec2 is not None
+
     def _set_psec2(self, psec2):
         self.__dict__['_psec2']=psec2
 

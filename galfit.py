@@ -636,7 +636,7 @@ class GalFit:
             comp.set_psize(psize, force=False)
 
         # trans
-        comp=comp.mod_trans_to(mod, warn=warn)
+        comp=comp.mod_trans_to(mod, warn=warn, psize=psize)
         if comp.need_psize():
             comp.set_psize(psize, force=False)
 
