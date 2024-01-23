@@ -83,13 +83,22 @@ class RegMask:
 
         return self.get_mask(header=header, shape=shape)
 
-    def get_mask_by_wcs(self, wcs, shape):
+    def get_mask_by_wcs(self, wcs, shape=None):
         '''
             create mask array by WCS object and shape
         '''
+        if not wcs.is_celestial:
+            raise ValueError('not celestial wcs')
+
         header=wcs.to_header()
 
         # add NAXISi
+        if shape is None:
+            nxy=wcs.pixel_shape
+            if nxy is None:
+                raise ValueError('no shape given')
+            shape=tuple(nxy[::-1])
+
         ny, nx=shape
         header['NAXIS']=2
         header['NAXIS1']=nx
