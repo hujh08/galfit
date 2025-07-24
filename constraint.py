@@ -58,13 +58,25 @@ class Constraints:
         self.rules_cons.append(ConsRule(*args))
 
     ### frequently used functions
+
+    #### hard offset
+    def add_hard_offset(self, comps, p):
+        '''
+            add hard offset constraint
+
+            e.g. '1_2_3   x   offset'
+                keep x1-x2, x2-x3 fixed during fitting
+                    x1,x2,x3 for parameter x of components 1,2,3
+        '''
+        self.add_cons(comps, p, 'hard_offset')
+
     def add_hard_cons_position(self, comps, p):
         '''
             add hard constraint to position parameters, like x, y
 
             constraint type: hard_offset
         '''
-        self.add_cons(comps, p, 'hard_offset')
+        self.add_hard_offset(comps, p)
 
     def add_hard_cons_to_xy(self, *comps):
         '''
@@ -73,8 +85,32 @@ class Constraints:
             frequently used for fitting with homocentric components,
                 like homocentric bulge/disk
         '''
-        self.add_cons(comps, 'x', 'hard_offset')
-        self.add_cons(comps, 'y', 'hard_offset')
+        self.add_hard_cons_position(comps, 'x')
+        self.add_hard_cons_position(comps, 'y')
+
+    #### soft range
+    def add_soft_range_multi(self, comps, p, minmax, rel=False):
+        '''
+            add soft range constrants for multiply comps
+        '''
+        t='soft_fromto' if not rel else 'soft_shift'
+        for comp in comps:
+            assert is_int_type(comp)
+            self.add_cons([comp], p, t, minmax)
+
+    def add_soft_range(self, comp, p, minmax, rel=False):
+        '''
+            add soft range constraint
+                in absolute value or relative to input
+
+            absolute: e.g. '1    n   v1 to v2'
+                keep n1 within values from v1 to v2
+            rel to input: e.g. '1    x   d1  d2'
+                keep shift x within range from v1 to v2
+                    that is, assume x0 as input,
+                        then x must be kept from x0+d1 to x0+d2
+        '''
+        self.add_soft_range_multi([comp], p, minmax, rel=rel)
 
     def add_range_to_par(self, comp, p, minmax):
         '''
@@ -84,19 +120,116 @@ class Constraints:
 
             :argument comp must be a integral
         '''
-        assert is_int_type(comp)
-        self.add_cons([comp], p, 'soft_fromto', minmax)
+        self.add_soft_range(comp, p, minmax, rel=False)
 
     def add_relrange_to_par(self, comp, p, minmax):
         '''
             constrain a parameter to a relative range `minmax`
+                relative to input value
 
             constraint type: soft_shift
 
             :argument comp must be a integral
         '''
-        assert is_int_type(comp)
-        self.add_cons([comp], p, 'soft_shift', minmax)
+        self.add_soft_range(comp, p, minmax, rel=True)
+
+    def add_range_to_pars(self, comps, p, minmax):
+        '''
+            range constraint to pars
+        '''
+        self.add_soft_range_multi(comps, p, minmax, rel=False)
+
+    def add_relrange_to_pars(self, comps, p, minmax):
+        '''
+            relative range constraint to pars
+                rel to input value
+        '''
+        self.add_soft_range_multi(comps, p, minmax, rel=True)
+
+    ### soft range for relation between pair of pars
+    def add_pair_soft_range_multi(self, comps1, comps2, p, minmax,
+                                                            ratio=False):
+        '''
+            add soft range constrants for multiply comps
+        '''
+        t='soft_offset' if not ratio else 'soft_ratio'
+        int1, int2=is_int_type(comps1), is_int_type(comps2)
+
+        if not int1:
+            comps1=list(comps1)
+            assert all(map(is_int_type, comps1))
+        if not int2:
+            comps2=list(comps2)
+            assert all(map(is_int_type, comps2))
+
+        if int1 and int2:
+            comps1, comps2=[comps1], [comps2]
+        elif int1:
+            comps1=[comps1]*len(comps2)
+        elif int2:
+            comps2=[comps2]*len(comps1)
+        else:
+            assert len(comps1)==len(comps2)
+
+        for comp1, comp2 in zip(comps1, comps2):
+            self.add_cons([comp1, comp2], p, t, minmax)
+
+    def add_pair_soft_range(self, comp1, comp2, p, minmax, ratio=False):
+        '''
+            add soft range for relation between pair of pars
+                that is offset or ratio of pars
+
+            offset: e.g. '1-2    x    v1 v2'
+                keep x1-x2 within values from v1 to v2
+            ratio: e.g. '1/2    r    t1 t2'
+                keep r1/r2 within values from v1 to v2
+        '''
+        self.add_pair_soft_range_multi(comp1, [comp2], p, minmax,
+                                                            ratio=ratio)
+
+    def add_offset_range_to_pair(self, comp1, comp2, p, minmax):
+        '''
+            offset range to pair of pars `(v1, v2)`
+                i.e. range of v1-v2
+        '''
+        self.add_pair_soft_range(comp1, comp2, p, minmax, ratio=False)
+
+    def add_ratio_range_to_pair(self, comp1, comp2, p, minmax):
+        '''
+            ratio range to pair of pars `(v1, v2)`
+                i.e. range of v1/v2
+        '''
+        self.add_pair_soft_range(comp1, comp2, p, minmax, ratio=True)
+
+    def add_offset_range_to_pairs(self, comps1, comps2, p, minmax):
+        '''
+            offset range to multiply pairs
+        '''
+        self.add_pair_soft_range_multi(comps1, comps2, p, minmax,
+                                                            ratio=False)
+
+    def add_ratio_range_to_pairs(self, comps1, comps2, p, minmax):
+        '''
+            ratio range to multiply pairs
+        '''
+        self.add_pair_soft_range_multi(comps1, comps2, p, minmax,
+                                                            ratio=True)
+
+    def add_offset_range_mags(self, comps1, comps2, minmax):
+        '''
+            offset range to pairs of mag parameters
+
+            :param comps1, comps2: int or list of int
+        '''
+        self.add_offset_range_to_pairs(comps1, comps2, 'mag', minmax)
+
+    def add_ratio_range_res(self, comps1, comps2, minmax):
+        '''
+            ratio range to pairs of re parameters
+
+            :param comps1, comps2: int or list of int
+        '''
+        self.add_ratio_range_to_pairs(comps1, comps2, 're', minmax)
 
     # stringlizing
     def __str__(self):
@@ -215,6 +348,24 @@ class ConsRule:
         soft_ratio='/',
     )
 
+
+    # valid par names: only allow parameter number or valid str names
+    valid_par_names=['x', 'y', 'mag', 're', 'rs', 'n', 'q', 'pa',
+                     'alpha', 'beta', 'gamma',
+                     'c',  # boxy/disky
+                     'f1a', 'f1p', 'f2a', 'f2p',  # Fourier
+                     'r5',  # coordinate rotation
+    ]
+    set_valid_par_names=set(valid_par_names)
+
+    ## alias of par names
+    alias_par_names_cons=dict(
+        q=['ba'],  # names in in `.model` module
+        x=['x0'],
+        y=['y0'],
+    )
+    map_alias_par_names=inverse_alias(alias_par_names_cons)
+
     def __init__(self, *args):
         '''
             3 properties for a constraint rule
@@ -270,6 +421,7 @@ class ConsRule:
                 comps: indices of components to constrain
 
                 par: parameter to constrain
+                    str or parameter number
 
                 type_cons: type of constraint
                     6 types: hard_{offset,ratio},
@@ -292,8 +444,7 @@ class ConsRule:
             assert n==len(self.comps)
 
         # par
-        assert is_str_type(par)
-        self.par=str(par)
+        self.par=self.standard_par_name(par, raise_err=True)
 
         # range of constraint
         if self.is_soft_cons():
@@ -330,6 +481,34 @@ class ConsRule:
             args.append([float(i) for i in vals[-2:]])
 
         self.set_cons(comps, par, *args)
+
+    # par names
+    def standard_par_name(self, par, raise_err=True):
+        '''
+            standardize par name
+
+            only allow valid par names or par number,
+                when writing to constraint file
+
+            if not valid par and not `raise_err`,
+                return None
+        '''
+        if not is_str_type(par):
+            res=None
+        else:
+            res=str(par)
+
+            if not res.isdigit():
+                if res in self.map_alias_par_names:
+                    res=self.map_alias_par_names[res]
+                elif res not in self.set_valid_par_names:
+                    res=None
+
+        if res is None and raise_err:
+            raise ValueError('only allow valid par names or par number, '
+                            f'but got: {repr(par)}')
+
+        return res
 
     # functions about constraint type
     def is_soft_cons(self, t=None):
